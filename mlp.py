@@ -38,6 +38,10 @@ class MLP():
 	#Faz backpropagation
 	def fit(self, input_samples, expected_labels, learning_rate, threshold):
 		
+		error = 0
+		while(error > threshold):
+			error = 0
+
 		return None
 
 def main():
