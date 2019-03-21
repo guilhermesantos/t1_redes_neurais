@@ -2,6 +2,7 @@ import numpy as np
 import imageio
 import math
 
+#Classe que representa o multilayer perceptron
 class MLP():
 	def __init__(self, input_length, hidden_length, output_length):
 		self.input_length = input_length
@@ -10,9 +11,11 @@ class MLP():
 		self.hidden_mat = np.random.uniform(-0.5, 0.5, (hidden_length, input_length+1))
 		self.output_mat = np.random.uniform(-0.5, 0.5, (output_length, hidden_length+1))
 
+	#Funcao de ativacao (sigmoide)
 	def activ(self, net):
 		return (1/(1+math.exp(net)))
 
+	#Faz inferencia
 	def forward(self, input_vect):
 		if(input_vect.shape[0] != self.input_length):
 			message = 'Tamanho incorreto de entrada. Recebido: {} || Esperado: {}'.format(input_vect.shape[0], self.input_length)
@@ -32,12 +35,15 @@ class MLP():
 
 		return out_activ
 
-	def fit(self, input_samples, expected_labels):
+	#Faz backpropagation
+	def fit(self, input_samples, expected_labels, learning_rate, threshold):
+		
 		return None
 
 def main():
 	mlp = MLP(*(2, 2, 2))
 	out = mlp.forward(np.random.uniform(-1., 1., (2)))
 	print('output', out)
+
 if __name__ == '__main__':
 	main()
