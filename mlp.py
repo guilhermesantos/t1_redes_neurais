@@ -14,7 +14,7 @@ class MLP():
 		#Inicializa os pesos da camada oculta aleatoriamente, representando-os na forma de matriz
 		#Os pesos e vies de cada neuronio sao dispostos em linhas
 		#Em input_length+1, o +1 serve para representar o vies
-		self.hidden_mat = np.random.uniform(-0.5, 0.5, (hidden_length, input_length+1))
+		self.hidden_layer = np.random.uniform(-0.5, 0.5, (hidden_length, input_length+1))
 
 		#Inicializa os pesos da camada de saida aleatoriamente, representado-os na forma de matriz
 		#Os pesos e vies de cada neuronio sao dispostos em linhas
@@ -35,6 +35,7 @@ class MLP():
 
 	#Faz forward propagation (calcula a predicao da rede)
 	def forward_training(self, input_vect):
+		input_vect = np.array(input_vect)
 		#Checa se o tamanho da entrada corresponde ao que eh esperado pela rede
 		if(input_vect.shape[0] != self.input_length):
 			message = 'Tamanho incorreto de entrada. Recebido: {} || Esperado: {}'.format(input_vect.shape[0], self.input_length)
@@ -48,7 +49,7 @@ class MLP():
 
 		#Calcula a transformacao da entrada pela camada oculta usando produto de matriz por vetor 
 		#Wh x A = net, sendo Wh a matriz de pesos da camada oculta e A o vetor de entrada 
-		hidden_net = np.dot(self.hidden_mat, biased_input)
+		hidden_net = np.dot(self.hidden_layer, biased_input)
 		#Aplica a funcao de ativacao sobre a transformacao feita pela camada oculta
 		hidden_fnet = np.array([self.activ(x) for x in hidden_net])
 
@@ -79,8 +80,7 @@ class MLP():
 		epochs = 0
 
 		#Enquanto não chega no erro quadratico medio desejado ou atingir 5000 epocas, continua treinando
-		while(mean_squared_error > threshold or epochs < 5000):
-
+		while(mean_squared_error > threshold and epochs < 5000):
 			#Erro quadratico medio da epoca eh inicializado com 0
 			mean_squared_error = 0
 			
@@ -97,36 +97,42 @@ class MLP():
 				#Cria um vetor com o erro de cada neuronio da camada de saida
 				error_array = (target_label - out_fnet)
 
-				#Atualiza os pesos da camada de saida com a regra delta generalizada
-				#deltak = (Ypk-Ok)*Ok(1-Ok), sendo p a amostra atual do conjunto de treinamento,
+				#Calcula a variacao dos pesos da camada de saida com a regra delta generalizada
+				#delta_o_pk = (Ypk-Ok)*Opk(1-Opk), sendo p a amostra atual do conjunto de treinamento,
 				#e k um neuronio da camada de saida. Ypk eh a saida esperada do neuronio pelo exemplo do dataset,
-				#Ok eh a saida de fato produzida pelo neuronio 
+				#Opk eh a saida de fato produzida pelo neuronio 
 				delta_output_layer = error_array * self.deriv_activ(out_fnet)
 
+				#Calcula a variacao dos pesos da camada oculta com a regra delta generalizada
+				#delta_h_pj = f(net_h)*(1-f(net_h))*somatoria()
 				output_weights = self.output_layer[:,0:self.hidden_length]
 				delta_hidden_layer = self.deriv_activ(hidden_fnet) * np.dot(delta_output_layer, output_weights)
-
-				print('output layer', self.output_layer)
-				print('delta', delta_output_layer)
-				print('hidden fnet', hidden_fnet)
-				#Wkj(t+1) = wkj(t) + eta*delta*Ipj
+				
+				hidden_fnet_with_bias = np.zeros(hidden_fnet.shape[0]+1)
+				hidden_fnet_with_bias[0:self.hidden_length] = hidden_fnet[:]
+				hidden_fnet_with_bias[self.hidden_length] = 1
+				#Atualiza os pesos da camada de saida
+				#Wkj(t+1) = wkj(t) + eta*deltak*Ij
 				for neuron in range(0, self.output_length):
 					for weight in range(0, self.output_layer.shape[1]):
-						print('updating weight index ', neuron, ' ', weight)
-						print('current weight', self.output_layer[neuron, weight])
-						print('current hidden fnet', hidden_fnet[weight])
 						self.output_layer[neuron, weight] = self.output_layer[neuron, weight] + \
-						learning_rate * delta_output_layer * hidden_fnet[weight]
-				#self.output_layer = self.output_layer + learning_rate*np.dot(delta_output_layer, hidden_fnet)
-				#self.output_layer = self.output_layer + learning_rate*(delta_output_layer @ hidden_fnet)
+							learning_rate * delta_output_layer[neuron] * hidden_fnet_with_bias[weight]
 
 				#Atualiza os pesos da camada oculta com a regra delta generalizada
-				#Pega os pesos dos neuronios da camada de saida (bias nao entra)
+				#Pega os pesos dos neuronios da camada de saida (bias da camada de saida nao entra)
+				#Wji(t+1) = Wji(t)+eta*delta_j*Xi
 				input_sample_with_bias = np.zeros(input_sample.shape[0]+1)
 				input_sample_with_bias[0:input_sample.shape[0]] = input_sample[:]
 				input_sample_with_bias[input_sample.shape[0]] = 1
-				self.hidden_mat = self.hidden_mat + learning_rate*np.dot(delta_hidden_layer.T, input_sample_with_bias)
-				#self.hidden_mat = self.hidden_mat + learning_rate*(delta_hidden_layer.T @ input_sample_with_bias)
+				#print('delta output layer', delta_output_layer)
+				#print('delta hidden layer', delta_hidden_layer)
+				#print('hidden fnet with bias', hidden_fnet_with_bias)
+				#print('input sample with bias', input_sample_with_bias)
+				for neuron in range(0, self.hidden_length):
+					for weight in range(0, self.hidden_layer.shape[1]):
+						self.hidden_layer[neuron, weight] = self.hidden_layer[neuron, weight] + \
+							learning_rate*delta_hidden_layer[neuron]*input_sample_with_bias[weight]
+							#np.dot(delta_hidden_layer.T, input_sample_with_bias)
 
 				#O erro da saída de cada neuronio é elevado ao quadrado e somado ao erro total da epoca
 				#para calculo do erro quadratico medio ao final
@@ -134,8 +140,10 @@ class MLP():
 			
 			#Divide o erro quadratico total pelo numero de exemplos para obter o erro quadratico medio
 			mean_squared_error = mean_squared_error/input_samples.shape[0]
-			print('Erro medio quadratico', mean_squared_error)
+			#print('Erro medio quadratico', mean_squared_error)
 			epochs = epochs + 1
+
+		print('total epochs run', epochs)
 		return None
 
 def squared_error(target, output):
@@ -144,11 +152,31 @@ def squared_error(target, output):
 
 def main():
 	mlp = MLP(*(2, 2, 1))
-	out = mlp.forward(np.array([0,1]))
-	print('output', out)
+	print('\n\n')
+	print('output before backpropagation')
+	print('[0,0]=', mlp.forward([0,0]))
+	print('[0,1]=', mlp.forward([0,1]))
+	print('[1,0]=', mlp.forward([1,0]))
+	print('[1,1]=', mlp.forward([1,1]))
+
+	print('layers before backprop')
+	print('hidden', mlp.hidden_layer)
+	print('output layer', mlp.output_layer)
+	print('\n')
 
 	x = np.array([[0,0],[0,1],[1,0],[1,1]])
 	target = np.array([0, 1, 1, 0])
 	mlp.fit(x, target, 5e-1, 10e-3)
+
+	print('\noutput after backpropagation')
+	print('[0,0]=', mlp.forward([0,0]))
+	print('[0,1]=', mlp.forward([0,1]))
+	print('[1,0]=', mlp.forward([1,0]))
+	print('[1,1]=', mlp.forward([1,1]))
+	print('layers after backprop')
+	print('hidden', mlp.hidden_layer)
+	print('output layer', mlp.output_layer)
+
+	print('\n\n')
 if __name__ == '__main__':
 	main()
