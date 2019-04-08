@@ -23,7 +23,7 @@ class MLP():
 
 	#Funcao de ativacao (sigmoide)
 	def activ(self, net):
-		return (1/(1+math.exp(net)))
+		return (1./(1.+math.exp(-net)))
 
 	#Derivada da funcao de ativacao (sigmoide)
 	def deriv_activ(self, fnet):
@@ -100,13 +100,20 @@ class MLP():
 				#Calcula a variacao dos pesos da camada de saida com a regra delta generalizada
 				#delta_o_pk = (Ypk-Ok)*Opk(1-Opk), sendo p a amostra atual do conjunto de treinamento,
 				#e k um neuronio da camada de saida. Ypk eh a saida esperada do neuronio pelo exemplo do dataset,
-				#Opk eh a saida de fato produzida pelo neuronio 
+				#Opk eh a saida de fato produzida pelo neuronio
 				delta_output_layer = error_array * self.deriv_activ(out_fnet)
 
 				#Calcula a variacao dos pesos da camada oculta com a regra delta generalizada
-				#delta_h_pj = f(net_h)*(1-f(net_h))*somatoria()
+				#delta_h_pj = f'(net_h)*(1-f(net_h))*somatoria(delta_o_k*wkj)
 				output_weights = self.output_layer[:,0:self.hidden_length]
-				delta_hidden_layer = self.deriv_activ(hidden_fnet) * np.dot(delta_output_layer, output_weights)
+
+				hidden_layer_local_gradient = np.zeros(self.hidden_length)
+				for hidden_neuron in range(0, self.hidden_length):
+					for output_neuron in range(0, self.output_length):
+							hidden_layer_local_gradient[hidden_neuron] += delta_output_layer[output_neuron]*\
+								output_weights[output_neuron, hidden_neuron]
+				
+				delta_hidden_layer = self.deriv_activ(hidden_fnet) * hidden_layer_local_gradient
 				
 				hidden_fnet_with_bias = np.zeros(hidden_fnet.shape[0]+1)
 				hidden_fnet_with_bias[0:self.hidden_length] = hidden_fnet[:]
@@ -120,14 +127,10 @@ class MLP():
 
 				#Atualiza os pesos da camada oculta com a regra delta generalizada
 				#Pega os pesos dos neuronios da camada de saida (bias da camada de saida nao entra)
-				#Wji(t+1) = Wji(t)+eta*delta_j*Xi
+				#Wji(t+1) = Wji(t)+eta*delta_h_j*Xi
 				input_sample_with_bias = np.zeros(input_sample.shape[0]+1)
 				input_sample_with_bias[0:input_sample.shape[0]] = input_sample[:]
 				input_sample_with_bias[input_sample.shape[0]] = 1
-				#print('delta output layer', delta_output_layer)
-				#print('delta hidden layer', delta_hidden_layer)
-				#print('hidden fnet with bias', hidden_fnet_with_bias)
-				#print('input sample with bias', input_sample_with_bias)
 				for neuron in range(0, self.hidden_length):
 					for weight in range(0, self.hidden_layer.shape[1]):
 						self.hidden_layer[neuron, weight] = self.hidden_layer[neuron, weight] + \
@@ -136,14 +139,17 @@ class MLP():
 
 				#O erro da saída de cada neuronio é elevado ao quadrado e somado ao erro total da epoca
 				#para calculo do erro quadratico medio ao final
-				mean_squared_error = mean_squared_error + np.sum(error_array**2)				
+				mean_squared_error = mean_squared_error + np.sum(error_array**2)			
 			
 			#Divide o erro quadratico total pelo numero de exemplos para obter o erro quadratico medio
 			mean_squared_error = mean_squared_error/input_samples.shape[0]
 			#print('Erro medio quadratico', mean_squared_error)
 			epochs = epochs + 1
+			if(epochs % 1000 == 0):
+				print('rmse', mean_squared_error)
 
 		print('total epochs run', epochs)
+		print('final rmse', mean_squared_error)
 		return None
 
 def squared_error(target, output):
@@ -152,8 +158,7 @@ def squared_error(target, output):
 
 def main():
 	mlp = MLP(*(2, 2, 1))
-	print('\n\n')
-	print('output before backpropagation')
+	print('\n\noutput before backpropagation')
 	print('[0,0]=', mlp.forward([0,0]))
 	print('[0,1]=', mlp.forward([0,1]))
 	print('[1,0]=', mlp.forward([1,0]))
@@ -166,9 +171,9 @@ def main():
 
 	x = np.array([[0,0],[0,1],[1,0],[1,1]])
 	target = np.array([0, 1, 1, 0])
-	mlp.fit(x, target, 5e-1, 10e-3)
+	mlp.fit(x, target, 5e-1, 10e-5)
 
-	print('\noutput after backpropagation')
+	print('\n\noutput after backpropagation')
 	print('[0,0]=', mlp.forward([0,0]))
 	print('[0,1]=', mlp.forward([0,1]))
 	print('[1,0]=', mlp.forward([1,0]))
