@@ -229,29 +229,31 @@ def shuffle_two_arrays(data, labels):
 	return data[permutation], labels[permutation]
 
 #Gera os indices de cada um dos k-folds
+#ex: [0,1,2,3,4,5,6,7,8,9] em 
 def k_folds_split(dataset_size, k):
 	fold_size = int(dataset_size/k)
-	folds = np.zeros((k, fold_size))
+	folds = np.zeros((k, fold_size), dtype=int)
 
 	for current_k in range(0, k):
 		fold_indexes = range(current_k*fold_size, (current_k+1)*fold_size)
 		folds[current_k] = fold_indexes
 
+	print('folds', folds)
 	return folds
 
-#Gera os indices, dividindo os dados entre treino e teste utilizando os folds calculados
+#Gera os indices, dividindo os dados entre treino e teste utilizando os indices dos folds
 def train_test_split(folds):
 	fold_qtt = folds.shape[0]
 	fold_size = folds.shape[1]
 	train_set_size = (fold_qtt-1)*fold_size
 	test_set_size = fold_size
 
-	train_sets = np.zeros((fold_qtt, train_set_size))
-	test_sets = np.zeros((fold_qtt, test_set_size))
+	train_sets = np.zeros((fold_qtt, train_set_size), dtype=int)
+	test_sets = np.zeros((fold_qtt, test_set_size), dtype=int)
 
 	for fold_to_skip in range(0, fold_qtt):
-		train_set = np.zeros(train_set_size)
-		test_set = np.zeros(test_set_size)
+		train_set = np.zeros(train_set_size, dtype=int)
+		test_set = np.zeros(test_set_size, dtype=int)
 		added_folds = 0
 
 		for fold_index, current_fold in enumerate(folds):
@@ -266,32 +268,46 @@ def train_test_split(folds):
 
 	return train_sets, test_sets
 
+#Faz k-fold cross validation em uma mlp
+def k_fold_cross_validation(mlp, data, labels, k):
+	print('Performing k-fold cross validation')
+	print('Shuffling data...')
+	shuffled_data, shuffled_labels = shuffle_two_arrays(data, labels)
+	print('Splitting in folds')
+	folds = k_folds_split(shuffled_data.shape[0], 5)
+	print('Building train and test set indexes...')
+	train_sets, test_sets = train_test_split(folds)
+	#print('Training sets', train_sets)
+	#print('Test sets', test_sets)
+	
+	scores = np.zeros(k)
+	accuracies = np.zeros(k)
+	for index, (train_set, test_set) in enumerate(zip(train_sets, test_sets)):
+		print('Fitting to training set', index)
+		mlp.fit(data[train_set], labels[train_set], 5e-1, 5e-2)
+		print('testing with test set', index)
+		score, accuracy = measure_score(mlp, data[test_set], labels[test_set])
+		scores[index] = score
+		accuracies[index] = accuracy
+
+	return scores, accuracies
+
+def load_mlp_from_disk(filename):
+	mlp = None
+	if(os.path.isfile(filename)):
+		with open(filename, 'rb') as file:
+			mlp = pickle.load(file)	
+	return mlp
+
 def main():
 	#test_logic()
 	data, labels = load_digits()
-
-	mlp = None
-	if(not os.path.isfile('mlp.pickle')):
-		print('No model file exists yet. Fitting new model...')		
-		mlp = MLP(*[256, 128, 10])
-		mlp.fit(data, labels, 5e-1, 5e-2)
-		mlp.save_to_disk('mlp.pickle')
-	else:
-		print('Model file found on disk. Loading...')
-		with open('mlp.pickle', 'rb') as file:
-			mlp = pickle.load(file)
-
-
-	shuffled_data, shuffled_labels = shuffle_two_arrays(np.array(range(0,50)), np.zeros((50)))
-	folds = k_folds_split(shuffled_data.shape[0], 5)
-	train_sets, test_sets = train_test_split(folds)
+	mlp = MLP(*[256, 128, 10])
+	scores, accuracies = k_fold_cross_validation(mlp, data, labels, 5)
 	
-	print('train sets', train_sets)
-	print('test sets', test_sets)
-
-	score, accuracy = measure_score(mlp, data, labels)
-	#print('Total score:', score)
-	#print('Accuracy:', accuracy)
+	print('scores', scores)
+	print('accuracies', accuracies)
+	mlp.save_to_disk('mlp.pickle')
 
 if __name__ == '__main__':
 	main()
