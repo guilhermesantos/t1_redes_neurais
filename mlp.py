@@ -1,7 +1,9 @@
 import numpy as np
 import imageio
 import math
-import functools
+import matplotlib.pyplot as plt
+import pickle
+import os
 
 #Classe que representa o multilayer perceptron
 class MLP():
@@ -20,6 +22,11 @@ class MLP():
 		#Os pesos e vies de cada neuronio sao dispostos em linhas
 		#Em hidden_length+1, o +1 serve para representar o vies
 		self.output_layer = np.random.uniform(-0.5, 0.5, (output_length, hidden_length+1))
+
+	def save_to_disk(self, file_name):
+		print('Saving model to', file_name)
+		with open(file_name, 'wb') as file:
+			pickle.dump(self, file)
 
 	#Funcao de ativacao (sigmoide)
 	def activ(self, net):
@@ -86,6 +93,8 @@ class MLP():
 			
 			#Passa por todos os exemplos do dataset
 			for i in range(0, input_samples.shape[0]):
+				if(i % 200 == 0):
+					print('current sample', i)
 				#Pega o exemplo da iteracao atual
 				input_sample = input_samples[i]
 				#Pega o label esperado para o exemplo da iteracao atual
@@ -145,19 +154,17 @@ class MLP():
 			mean_squared_error = mean_squared_error/input_samples.shape[0]
 			#print('Erro medio quadratico', mean_squared_error)
 			epochs = epochs + 1
-			if(epochs % 1000 == 0):
-				print('rmse', mean_squared_error)
+			#if(epochs % 1000 == 0):
+			print('rmse', mean_squared_error)
 
 		print('total epochs run', epochs)
 		print('final rmse', mean_squared_error)
 		return None
 
-def squared_error(target, output):
-	squared_differences = [(target[x] - output[x])**2 for x in range(len(target))]
-	return functools.reduce(lambda x,y: x+y, squared_differences)
-
-def main():
+#Testa a mlp com funcoes logicas
+def test_logic():
 	mlp = MLP(*(2, 2, 1))
+
 	print('\n\noutput before backpropagation')
 	print('[0,0]=', mlp.forward([0,0]))
 	print('[0,1]=', mlp.forward([0,1]))
@@ -167,11 +174,11 @@ def main():
 	print('layers before backprop')
 	print('hidden', mlp.hidden_layer)
 	print('output layer', mlp.output_layer)
-	print('\n')
+	print('\n')	
 
 	x = np.array([[0,0],[0,1],[1,0],[1,1]])
-	target = np.array([0, 1, 1, 0])
-	mlp.fit(x, target, 5e-1, 10e-5)
+	target = np.array([0, 0, 0, 1])
+	mlp.fit(x, target, 5e-1, 10e-1)
 
 	print('\n\noutput after backpropagation')
 	print('[0,0]=', mlp.forward([0,0]))
@@ -182,6 +189,68 @@ def main():
 	print('hidden', mlp.hidden_layer)
 	print('output layer', mlp.output_layer)
 
-	print('\n\n')
+#Carrega o dataset de digitos
+def load_digits():
+	data = np.zeros([1593, 256])
+	labels = np.zeros([1593, 10])
+
+	with open('semeion.data') as file:
+		for image_index, line in enumerate(file):
+			number_list = np.array(line.split())
+			image = number_list[0:256].astype(float).astype(int)
+			classes = number_list[256:266].astype(float).astype(int)
+			data[image_index,:] = image[:]
+			labels[image_index,:] = classes[:]
+			
+	return data, labels
+
+def plot_image(image):
+	news_image = image.reshape(16,16)
+	plt.imshow(new_image)
+	plt.show()
+
+#Faz predicao da classe de todos os dados e compara com as classes esperadas
+def measure_score(mlp, data, target):
+	dataset_size = target.shape[0]
+	score = 0
+	
+	for index, data in enumerate(data):
+		expected_class = np.argmax(target[index])
+		predicted_class = np.argmax(mlp.forward(data))
+		if(expected_class == predicted_class):
+			score += 1
+
+	return score, (score/dataset_size)*100	
+
+#Embaralha dois arrays de forma simetrica
+def shuffle_two_arrays(data, labels):
+	permutation = np.random.permutation(data.shape[0])
+	print('created a permutation of shape', permutation.shape)
+	return data[permutation], labels[permutation]
+
+#Gera os indices de cada um dos k-folds
+def k_folds_split(data, labels, k):
+	return None
+
+def main():
+	#test_logic()
+	data, labels = load_digits()
+
+	mlp = None
+	if(not os.path.isfile('mlp.pickle')):
+		print('No model file exists yet. Fitting new model...')		
+		mlp = MLP(*[256, 128, 10])
+		mlp.fit(data, labels, 5e-1, 5e-2)
+		mlp.save_to_disk('mlp.pickle')
+	else:
+		print('Model file found on disk. Loading...')
+		with open('mlp.pickle', 'rb') as file:
+			mlp = pickle.load(file)
+
+	shuffled_data, shuffled_labels = shuffle_two_arrays(data, labels)
+	score, accuracy = measure_score(mlp, data, labels)
+	print('Total score:', score)
+	print('Accuracy:', accuracy)
+
 if __name__ == '__main__':
 	main()
