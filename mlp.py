@@ -230,8 +230,8 @@ def shuffle_two_arrays(data, labels):
 
 #Gera os indices de cada um dos k-folds
 #ex: dataset de 10 elementos dividido em 5 folds
-#retorna [[0,1][2,3][4,5][6,7][8,9]], em que o k-esimo vetor interno
-#tem os indices dos elementos que pertencem ao k-esimo fold 
+#retorna [[0,1][2,3][4,5][6,7][8,9]], em que o n-esimo vetor interno
+#tem os indices dos elementos que pertencem ao n-esimo fold 
 def k_folds_split(dataset_size, k):
 	fold_size = int(dataset_size/k)
 	folds = np.zeros((k, fold_size), dtype=int)
@@ -243,12 +243,13 @@ def k_folds_split(dataset_size, k):
 	print('folds', folds)
 	return folds
 
-#Recebe os folds e retorna as listas dos elementos que pertencem 
+#Recebe os folds e retorna as listas (dos indices) dos elementos que pertencem 
 #ao conjunto de treinamento e de teste, para todos os testes
 #ex. se tem 10 folds, retorna 10 listas de treino e 10 de teste
 #o primeiro par (treino, teste) usa o primeiro fold para teste e os demais para treino, o segundo
-#par usa o segundo fold para teste e os demais para treino, e assim por diante
-#Retorna estes conjuntos no formato de uma lista de indices
+#par (treino, teste) usa o segundo fold para teste e os demais para treino, e assim por diante
+#Retorna estes conjuntos no formato de uma lista de indices dos elementos que pertencem a cada
+#conjunto
 def train_test_split(folds):
 	fold_qtt = folds.shape[0]
 	fold_size = folds.shape[1]
