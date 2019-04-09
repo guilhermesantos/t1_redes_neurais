@@ -229,8 +229,16 @@ def shuffle_two_arrays(data, labels):
 	return data[permutation], labels[permutation]
 
 #Gera os indices de cada um dos k-folds
-def k_folds_split(data, labels, k):
-	return None
+def k_folds_split(dataset_size, k):
+	fold_size = int(dataset_size/k)
+	folds = np.zeros((k, fold_size))
+
+	for current_k in range(0, k):
+		fold_indexes = range(current_k*fold_size, (current_k+1)*fold_size)
+		folds[current_k] = fold_indexes
+
+	print('folds[0:2] shape', folds[0:2].shape)
+	return folds
 
 def main():
 	#test_logic()
@@ -248,6 +256,7 @@ def main():
 			mlp = pickle.load(file)
 
 	shuffled_data, shuffled_labels = shuffle_two_arrays(data, labels)
+	fold_indexes = k_folds_split(data.shape[0], 5)
 	score, accuracy = measure_score(mlp, data, labels)
 	print('Total score:', score)
 	print('Accuracy:', accuracy)
