@@ -229,7 +229,9 @@ def shuffle_two_arrays(data, labels):
 	return data[permutation], labels[permutation]
 
 #Gera os indices de cada um dos k-folds
-#ex: [0,1,2,3,4,5,6,7,8,9] em 
+#ex: dataset de 10 elementos dividido em 5 folds
+#retorna [[0,1][2,3][4,5][6,7][8,9]], em que o k-esimo vetor interno
+#tem os indices dos elementos que pertencem ao k-esimo fold 
 def k_folds_split(dataset_size, k):
 	fold_size = int(dataset_size/k)
 	folds = np.zeros((k, fold_size), dtype=int)
@@ -241,7 +243,12 @@ def k_folds_split(dataset_size, k):
 	print('folds', folds)
 	return folds
 
-#Gera os indices, dividindo os dados entre treino e teste utilizando os indices dos folds
+#Recebe os folds e retorna as listas dos elementos que pertencem 
+#ao conjunto de treinamento e de teste, para todos os testes
+#ex. se tem 10 folds, retorna 10 listas de treino e 10 de teste
+#o primeiro par (treino, teste) usa o primeiro fold para teste e os demais para treino, o segundo
+#par usa o segundo fold para teste e os demais para treino, e assim por diante
+#Retorna estes conjuntos no formato de uma lista de indices
 def train_test_split(folds):
 	fold_qtt = folds.shape[0]
 	fold_size = folds.shape[1]
@@ -277,15 +284,13 @@ def k_fold_cross_validation(mlp, data, labels, k):
 	folds = k_folds_split(shuffled_data.shape[0], 5)
 	print('Building train and test set indexes...')
 	train_sets, test_sets = train_test_split(folds)
-	#print('Training sets', train_sets)
-	#print('Test sets', test_sets)
 	
 	scores = np.zeros(k)
 	accuracies = np.zeros(k)
 	for index, (train_set, test_set) in enumerate(zip(train_sets, test_sets)):
 		print('Fitting to training set', index)
 		mlp.fit(data[train_set], labels[train_set], 5e-1, 5e-2)
-		print('testing with test set', index)
+		print('Testing with test set', index)
 		score, accuracy = measure_score(mlp, data[test_set], labels[test_set])
 		scores[index] = score
 		accuracies[index] = accuracy
