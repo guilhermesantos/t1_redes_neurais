@@ -237,8 +237,34 @@ def k_folds_split(dataset_size, k):
 		fold_indexes = range(current_k*fold_size, (current_k+1)*fold_size)
 		folds[current_k] = fold_indexes
 
-	print('folds[0:2] shape', folds[0:2].shape)
 	return folds
+
+#Gera os indices, dividindo os dados entre treino e teste utilizando os folds calculados
+def train_test_split(folds):
+	fold_qtt = folds.shape[0]
+	fold_size = folds.shape[1]
+	train_set_size = (fold_qtt-1)*fold_size
+	test_set_size = fold_size
+
+	train_sets = np.zeros((fold_qtt, train_set_size))
+	test_sets = np.zeros((fold_qtt, test_set_size))
+
+	for fold_to_skip in range(0, fold_qtt):
+		train_set = np.zeros(train_set_size)
+		test_set = np.zeros(test_set_size)
+		added_folds = 0
+
+		for fold_index, current_fold in enumerate(folds):
+			if(fold_index != fold_to_skip):
+				train_set[added_folds*fold_size:(added_folds+1)*fold_size] = current_fold
+				added_folds += 1
+			else:
+				test_set[0:fold_size] = current_fold
+
+		train_sets[fold_to_skip] = train_set
+		test_sets[fold_to_skip] = test_set
+
+	return train_sets, test_sets
 
 def main():
 	#test_logic()
@@ -255,11 +281,17 @@ def main():
 		with open('mlp.pickle', 'rb') as file:
 			mlp = pickle.load(file)
 
-	shuffled_data, shuffled_labels = shuffle_two_arrays(data, labels)
-	fold_indexes = k_folds_split(data.shape[0], 5)
+
+	shuffled_data, shuffled_labels = shuffle_two_arrays(np.array(range(0,50)), np.zeros((50)))
+	folds = k_folds_split(shuffled_data.shape[0], 5)
+	train_sets, test_sets = train_test_split(folds)
+	
+	print('train sets', train_sets)
+	print('test sets', test_sets)
+
 	score, accuracy = measure_score(mlp, data, labels)
-	print('Total score:', score)
-	print('Accuracy:', accuracy)
+	#print('Total score:', score)
+	#print('Accuracy:', accuracy)
 
 if __name__ == '__main__':
 	main()
