@@ -323,24 +323,32 @@ def record_test_results(test_results, filename):
 	with open(filename, 'w') as file:
 		json.dump(test_results, file)
 
+def build_test_result_dict(mlp, scores, accuracies):
+	test_results = dict()
+	test_results['hidden_layer_size'] = mlp.hidden_length
+	test_results['learning_rate'] = mlp.learning_rate
+	test_results['scores'] = scores
+	test_results['accuracies'] = accuracies
+	return test_results
+
 def main():
 	#test_logic()
 	data, labels = load_digits()
 	tests = []
 	for hidden_layer_size in range(1, 129):
-		print('TESTING FOR HIDDEN LAYER SIZE', hidden_layer_size)
+		print('Testing for hidden layer size', hidden_layer_size)
 		mlp = MLP(*[256, hidden_layer_size, 10], 5e-1)
 		scores, accuracies = k_fold_cross_validation(mlp, data, labels, 5)
-		test_results = dict()
-		test_results['hidden_layer_size'] = mlp.hidden_length
-		test_results['learning_rate'] = mlp.learning_rate
-		test_results['scores'] = scores
-		test_results['accuracies'] = accuracies
-		tests.append(test_results)
+		tests.append(build_test_result_dict(mlp, scores, accuracies))
+	record_test_results(tests, 'hidden_layer_results.dat')
 	
-	print('scores', scores)
-	print('accuracies', accuracies)
-	record_test_results(tests, 'results.dat')
+	tests = []
+	for learning_rate in np.arange(10e-2, 1, 10e-2):
+		print('Testing for learning rate', learning_rate)
+		mlp = MLP(*[256, 128, 10], learning_rate)
+		scores, accuracies = k_fold_cross_validation(mlp, data, labels, 5)
+		tests.append(build_test_result_dict(mlp, scores, accuracies))
+	record_test_results(tests, 'learning_rate_results.dat')
 
 if __name__ == '__main__':
 	main()
