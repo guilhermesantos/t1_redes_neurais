@@ -327,7 +327,7 @@ def main():
 	#test_logic()
 	data, labels = load_digits()
 	tests = []
-	for hidden_layer_size in range(1, 3):
+	for hidden_layer_size in range(1, 129):
 		print('TESTING FOR HIDDEN LAYER SIZE', hidden_layer_size)
 		mlp = MLP(*[256, hidden_layer_size, 10], 5e-1)
 		scores, accuracies = k_fold_cross_validation(mlp, data, labels, 5)
