@@ -210,6 +210,7 @@ def load_digits():
 			
 	return data, labels
 
+#Plota uma imagem
 def plot_image(image):
 	news_image = image.reshape(16,16)
 	plt.imshow(new_image)
@@ -306,6 +307,7 @@ def k_fold_cross_validation(mlp, data, labels, k):
 
 	return scores, accuracies
 
+#Carrega uma mlp do disco a partir de um arquivo .pickle
 def load_mlp_from_disk(filename):
 	mlp = None
 	if(os.path.isfile(filename)):
@@ -318,11 +320,13 @@ def load_mlp_from_disk(filename):
 			print('Learning rate: {}'.format(mlp.learning_rate))
 	return mlp
 
+#Grava os resultados do teste em um arquivo .json
 def record_test_results(test_results, filename):
 	print('Recording test results to', filename)
 	with open(filename, 'w') as file:
 		json.dump(test_results, file)
 
+#Compoe os resultados do teste em um dicionario pra facilitar gravacao
 def build_test_result_dict(mlp, scores, accuracies):
 	test_results = dict()
 	test_results['hidden_layer_size'] = mlp.hidden_length
@@ -334,21 +338,23 @@ def build_test_result_dict(mlp, scores, accuracies):
 def main():
 	#test_logic()
 	data, labels = load_digits()
+	#Testa a rede variando o tamanho da camada oculta e mantendo fixa a taxa de aprendizado
 	tests = []
 	for hidden_layer_size in range(1, 129):
 		print('Testing for hidden layer size', hidden_layer_size)
 		mlp = MLP(*[256, hidden_layer_size, 10], 5e-1)
 		scores, accuracies = k_fold_cross_validation(mlp, data, labels, 5)
 		tests.append(build_test_result_dict(mlp, scores, accuracies))
-	record_test_results(tests, 'hidden_layer_results.dat')
+	record_test_results(tests, 'hidden_layer_results.json')
 	
+	#Testa a rede mantendo fixo o tamanho da camada oculta e variando a taxa de aprendizado
 	tests = []
 	for learning_rate in np.arange(10e-2, 1, 10e-2):
 		print('Testing for learning rate', learning_rate)
 		mlp = MLP(*[256, 128, 10], learning_rate)
 		scores, accuracies = k_fold_cross_validation(mlp, data, labels, 5)
 		tests.append(build_test_result_dict(mlp, scores, accuracies))
-	record_test_results(tests, 'learning_rate_results.dat')
+	record_test_results(tests, 'learning_rate_results.json')
 
 if __name__ == '__main__':
 	main()
