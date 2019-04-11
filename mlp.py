@@ -1,17 +1,18 @@
 import numpy as np
 import imageio
 import math
-import matplotlib.pyplot as plt
 import pickle
 import os
+import json
 
 #Classe que representa o multilayer perceptron
 class MLP():
 	#Construtor. Recebe o tamanho das cadamas de entrada, oculta e de saidas
-	def __init__(self, input_length, hidden_length, output_length):
+	def __init__(self, input_length, hidden_length, output_length, learning_rate=5e-1):
 		self.input_length = input_length
 		self.hidden_length = hidden_length
 		self.output_length = output_length
+		self.learning_rate = learning_rate
 
 		#Inicializa os pesos da camada oculta aleatoriamente, representando-os na forma de matriz
 		#Os pesos e vies de cada neuronio sao dispostos em linhas
@@ -77,24 +78,29 @@ class MLP():
 		return hidden_net, hidden_fnet, out_net, out_fnet
 
 	#Faz backpropagation
-	def fit(self, input_samples, target_labels, learning_rate, threshold):
-		print('backpropagating')
+	def fit(self, input_samples, target_labels, threshold, learning_rate=None):
+		if(learning_rate is not None):
+			self.learning_rate = learning_rate
+
 		#Erro quadratico medio eh inicializado com um valor arbitrario (maior que o threshold de parada)
 		#p/ comecar o treinamento
 		mean_squared_error = 2*threshold
+		previous_mean_squared_error = 0.001
 
 		#Inicializa o numero de epocas ja computadas
 		epochs = 0
 
 		#Enquanto não chega no erro quadratico medio desejado ou atingir 5000 epocas, continua treinando
-		while(mean_squared_error > threshold and epochs < 5000):
+		while(mean_squared_error > threshold and epochs < 5000 and \
+		 math.fabs(mean_squared_error-previous_mean_squared_error)/previous_mean_squared_error > 10e-2):
 			#Erro quadratico medio da epoca eh inicializado com 0
+			previous_mean_squared_error = mean_squared_error
 			mean_squared_error = 0
 			
 			#Passa por todos os exemplos do dataset
 			for i in range(0, input_samples.shape[0]):
 				if(i % 200 == 0):
-					print('current sample', i)
+					print('Adjusting for sample', i)
 				#Pega o exemplo da iteracao atual
 				input_sample = input_samples[i]
 				#Pega o label esperado para o exemplo da iteracao atual
@@ -132,7 +138,7 @@ class MLP():
 				for neuron in range(0, self.output_length):
 					for weight in range(0, self.output_layer.shape[1]):
 						self.output_layer[neuron, weight] = self.output_layer[neuron, weight] + \
-							learning_rate * delta_output_layer[neuron] * hidden_fnet_with_bias[weight]
+							self.learning_rate * delta_output_layer[neuron] * hidden_fnet_with_bias[weight]
 
 				#Atualiza os pesos da camada oculta com a regra delta generalizada
 				#Pega os pesos dos neuronios da camada de saida (bias da camada de saida nao entra)
@@ -143,7 +149,7 @@ class MLP():
 				for neuron in range(0, self.hidden_length):
 					for weight in range(0, self.hidden_layer.shape[1]):
 						self.hidden_layer[neuron, weight] = self.hidden_layer[neuron, weight] + \
-							learning_rate*delta_hidden_layer[neuron]*input_sample_with_bias[weight]
+							self.learning_rate*delta_hidden_layer[neuron]*input_sample_with_bias[weight]
 							#np.dot(delta_hidden_layer.T, input_sample_with_bias)
 
 				#O erro da saída de cada neuronio é elevado ao quadrado e somado ao erro total da epoca
@@ -155,10 +161,10 @@ class MLP():
 			#print('Erro medio quadratico', mean_squared_error)
 			epochs = epochs + 1
 			#if(epochs % 1000 == 0):
-			print('rmse', mean_squared_error)
+			print('End of epoch no. {}. rmse={}'.format(epochs, mean_squared_error))
 
-		print('total epochs run', epochs)
-		print('final rmse', mean_squared_error)
+		print('Total epochs run', epochs)
+		print('Final rmse', mean_squared_error)
 		return None
 
 #Testa a mlp com funcoes logicas
@@ -225,7 +231,6 @@ def measure_score(mlp, data, target):
 #Embaralha dois arrays de forma simetrica
 def shuffle_two_arrays(data, labels):
 	permutation = np.random.permutation(data.shape[0])
-	print('created a permutation of shape', permutation.shape)
 	return data[permutation], labels[permutation]
 
 #Gera os indices de cada um dos k-folds
@@ -278,7 +283,7 @@ def train_test_split(folds):
 
 #Faz k-fold cross validation em uma mlp
 def k_fold_cross_validation(mlp, data, labels, k):
-	print('Performing k-fold cross validation')
+	print('k-fold cross validation')
 	print('Shuffling data...')
 	shuffled_data, shuffled_labels = shuffle_two_arrays(data, labels)
 	print('Splitting in folds')
@@ -286,15 +291,18 @@ def k_fold_cross_validation(mlp, data, labels, k):
 	print('Building train and test set indexes...')
 	train_sets, test_sets = train_test_split(folds)
 	
-	scores = np.zeros(k)
-	accuracies = np.zeros(k)
+	scores = []
+	accuracies = []
 	for index, (train_set, test_set) in enumerate(zip(train_sets, test_sets)):
-		print('Fitting to training set', index)
-		mlp.fit(data[train_set], labels[train_set], 5e-1, 5e-2)
+		print('Performing validation with fold no. {}...'.format(index))
+		print('Training...')
+		mlp = MLP(mlp.input_length, mlp.hidden_length, mlp.output_length, mlp.learning_rate)
+		mlp.fit(data[train_set], labels[train_set], 5e-2)
 		print('Testing with test set', index)
 		score, accuracy = measure_score(mlp, data[test_set], labels[test_set])
-		scores[index] = score
-		accuracies[index] = accuracy
+		print('accuracy at fold number {}: {}%'.format(index, accuracy))
+		scores.append(score)
+		accuracies.append(accuracy)
 
 	return scores, accuracies
 
@@ -302,18 +310,37 @@ def load_mlp_from_disk(filename):
 	mlp = None
 	if(os.path.isfile(filename)):
 		with open(filename, 'rb') as file:
-			mlp = pickle.load(file)	
+			mlp = pickle.load(file)
+			print('MLP successfully loaded. Properties:')
+			print('Input layer size: {}'.format(mlp.input_length))
+			print('Hidden layer size: {}'.format(mlp.hidden_length))
+			print('Output layer size: {}'.format(mlp.output_length))
+			print('Learning rate: {}'.format(mlp.learning_rate))
 	return mlp
+
+def record_test_results(test_results, filename):
+	print('Recording test results to', filename)
+	with open(filename, 'w') as file:
+		json.dump(test_results, file)
 
 def main():
 	#test_logic()
 	data, labels = load_digits()
-	mlp = MLP(*[256, 128, 10])
-	scores, accuracies = k_fold_cross_validation(mlp, data, labels, 5)
+	tests = []
+	for hidden_layer_size in range(1, 3):
+		print('TESTING FOR HIDDEN LAYER SIZE', hidden_layer_size)
+		mlp = MLP(*[256, hidden_layer_size, 10], 5e-1)
+		scores, accuracies = k_fold_cross_validation(mlp, data, labels, 5)
+		test_results = dict()
+		test_results['hidden_layer_size'] = mlp.hidden_length
+		test_results['learning_rate'] = mlp.learning_rate
+		test_results['scores'] = scores
+		test_results['accuracies'] = accuracies
+		tests.append(test_results)
 	
 	print('scores', scores)
 	print('accuracies', accuracies)
-	mlp.save_to_disk('mlp.pickle')
+	record_test_results(tests, 'results.dat')
 
 if __name__ == '__main__':
 	main()
